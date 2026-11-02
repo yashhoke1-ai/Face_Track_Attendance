@@ -1,25 +1,28 @@
-# Python cache
+
+# Python
 __pycache__/
 *.py[cod]
 
 # Virtual environments
 venv/
 .venv/
+env/
 
 # Database
 *.db
 *.sqlite
 *.sqlite3
 
-# Face images
+# Private face images
 faces/*
 !faces/.gitkeep
 
-# Environment files
+# Environment variables
 .env
 
-# Editor
+# IDE
 .vscode/
+.idea/
 
 # Logs
 *.log
