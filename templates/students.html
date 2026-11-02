@@ -1,0 +1,108 @@
+
+
+
+{% extends "base.html" %}
+{% block title %}Students | FaceAttend{% endblock %}
+{% block page_heading %}Student Management{% endblock %}
+
+
+{% block content %}
+<table>
+    <thead>
+        <tr>
+            <th>Photo</th>
+            <th>Roll Number</th>
+            <th>Name</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for student in students %}
+        <tr>
+            <td>
+                <img
+                    src="{{ url_for('static', filename=student['photo_path']) }}"
+                    alt="Student photo"
+                    width="60"
+                >
+            </td>
+
+            <td>{{ student['roll_no'] }}</td>
+            <td>{{ student['name'] }}</td>
+
+            <td>
+                <a href="{{ url_for('student_profile', student_id=student['id']) }}">
+                    View / Edit
+                </a>
+
+                <form
+                    action="{{ url_for('remove_student', student_id=student['id']) }}"
+                    method="POST"
+                    onsubmit="return confirm('Delete this student and their attendance history?');"
+                    style="display:inline;"
+                >
+                    <button type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="4">No students registered yet.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<section class="welcome">
+    <div>
+        <h1>Student Directory</h1>
+        <p>Register and manage student face profiles.</p>
+    </div>
+    <span class="tag">{{ students|length }} REGISTERED</span>
+</section>
+
+<div class="content-grid">
+    <section class="panel">
+        <div class="panel-heading">
+            <div><h3>Register Student</h3><p>Upload a clear face photo</p></div>
+            <span class="stat-icon purple-bg">＋</span>
+        </div>
+
+        <form action="{{ url_for('register_student') }}"
+              method="POST" enctype="multipart/form-data">
+            <label>Student Name</label>
+            <input name="name" placeholder="Enter full name" required>
+
+            <label>Roll Number</label>
+            <input name="roll_no" placeholder="e.g. BCA101" required>
+
+            <label>Face Photo</label>
+            <input type="file" name="photo"
+                   accept=".jpg,.jpeg,.png,.webp" required>
+
+            <p class="muted">Use a well-lit image with one clearly visible face.</p>
+            <button class="button button-purple" type="submit">＋ Register Student</button>
+        </form>
+    </section>
+
+    <section class="panel">
+        <div class="panel-heading">
+            <div><h3>Registered Profiles</h3><p>Students available for recognition</p></div>
+        </div>
+        <div class="student-list">
+            {% for student in students %}
+            <div class="student-item">
+                <span class="student-avatar">{{ student["name"][:1]|upper }}</span>
+                <div class="student-info">
+                    <strong>{{ student["name"] }}</strong>
+                    <small>Roll No: {{ student["roll_no"] }}</small>
+                </div>
+                <span class="badge-success">● Active</span>
+            </div>
+            {% else %}
+            <p class="empty">No students registered yet.</p>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

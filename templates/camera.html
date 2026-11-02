@@ -1,0 +1,39 @@
+
+{% extends "base.html" %}
+{% block title %}Live Camera | FaceAttend{% endblock %}
+{% block page_heading %}Live Face Recognition{% endblock %}
+
+{% block content %}
+<section class="welcome">
+    <div>
+        <h1>Live Camera <span class="cyan">◎</span></h1>
+        <p>Recognize registered faces and record attendance automatically.</p>
+    </div>
+    <span class="status-pill"><span class="online-dot"></span> Camera page open</span>
+</section>
+
+<section class="content-grid camera-layout">
+    <article class="panel">
+        <div class="panel-heading">
+            <div><h3>Recognition Feed</h3><p>Look toward your laptop webcam</p></div>
+            <span class="tag">LIVE</span>
+        </div>
+        <img class="live-video"
+             src="{{ url_for('video_feed') }}"
+             alt="Live face recognition camera feed">
+        <div class="panel-footer">
+            Recognized students are recorded once per day.
+        </div>
+    </article>
+
+    <article class="panel">
+        <div class="panel-heading">
+            <div><h3>Recognition Guide</h3><p>For best results</p></div>
+        </div>
+        <div class="guide-step"><span>01</span><div><strong>Face the camera</strong><p>Keep your face in view.</p></div></div>
+        <div class="guide-step"><span>02</span><div><strong>Use good lighting</strong><p>Avoid strong backlighting.</p></div></div>
+        <div class="guide-step"><span>03</span><div><strong>Check the result</strong><p>Look for the attendance status in the video.</p></div></div>
+        <a class="button button-cyan full-button" href="{{ url_for('dashboard') }}">← Back to Dashboard</a>
+    </article>
+</section>
+{% endblock %}

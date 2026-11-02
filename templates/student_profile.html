@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Student Profile</h1>
+
+<p><strong>Student ID:</strong> {{ student['id'] }}</p>
+
+{% if student['photo_path'] %}
+    <p>Photo path: {{ student['photo_path'] }}</p>
+{% endif %}
+
+<form
+    method="POST"
+    action="{{ url_for('edit_student', student_id=student['id']) }}"
+>
+    <label for="name">Student Name</label>
+    <input
+        type="text"
+        id="name"
+        name="name"
+        value="{{ student['name'] }}"
+        required
+    >
+
+    <label for="roll_no">Roll Number</label>
+    <input
+        type="text"
+        id="roll_no"
+        name="roll_no"
+        value="{{ student['roll_no'] }}"
+        required
+    >
+
+    <button type="submit">Save Changes</button>
+</form>
+
+<p>
+    <a href="{{ url_for('students_page') }}">Back to Students</a>
+</p>
+{% endblock %}

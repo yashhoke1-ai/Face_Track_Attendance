@@ -1,0 +1,42 @@
+ 
+{% extends "base.html" %}
+{% block title %}Reports | FaceAttend{% endblock %}
+{% block page_heading %}Attendance Reports{% endblock %}
+
+{% block content %}
+<section class="welcome">
+    <div>
+        <h1>Attendance History</h1>
+        <p>Review attendance records saved by face recognition.</p>
+    </div>
+    <button class="button button-cyan" onclick="window.print()" >Print Report</button>
+</section>
+
+<section class="panel">
+    <div class="panel-heading">
+        <div><h3>Attendance Records</h3><p>Latest 200 records</p></div>
+        <span class="tag">{{ records|length }} RECORDS</span>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>STUDENT</th><th>ROLL NUMBER</th><th>DATE</th><th>TIME</th><th>STATUS</th></tr>
+            </thead>
+            <tbody>
+            {% for record in records %}
+                <tr>
+                    <td>{{ record["name"] }}</td>
+                    <td>{{ record["roll_no"] }}</td>
+                    <td>{{ record["date"] }}</td>
+                    <td>{{ record["time"] }}</td>
+                    <td><span class="badge-success">● Recorded</span></td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="empty">No attendance records found.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,122 @@
+
+{% extends "base.html" %}
+{% block title %}Dashboard | FaceAttend{% endblock %}
+{% block page_heading %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<section class="welcome">
+    <div>
+        <div class="eyebrow">YOUR ATTENDANCE COMMAND CENTER</div>
+        <h1>Welcome back, Admin <span class="purple">✦</span></h1>
+        <p>Monitor recognition activity and today's attendance.</p>
+    </div>
+    <a class="button button-purple" href="{{ url_for('camera_page') }}">
+        ◎ Open Live Camera
+    </a>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card">
+        <div class="stat-top"><span>Total Students</span><span class="stat-icon purple-bg">♙</span></div>
+        <h2>{{ total_students }}</h2>
+        <p>Registered profiles</p>
+    </article>
+
+    <article class="stat-card cyan-border">
+        <div class="stat-top"><span>Present Today</span><span class="stat-icon cyan-bg">✓</span></div>
+        <h2>{{ present_today }}</h2>
+        <p class="cyan">Attendance recorded</p>
+    </article>
+
+    <article class="stat-card">
+        <div class="stat-top"><span>Not Marked Yet</span><span class="stat-icon purple-bg">◷</span></div>
+        <h2>{{ absent_today }}</h2>
+        <p>Without today's record</p>
+    </article>
+
+    <article class="stat-card cyan-border">
+        <div class="stat-top"><span>Attendance Rate</span><span class="stat-icon cyan-bg">↗</span></div>
+        <h2>{{ attendance_rate }}<small>%</small></h2>
+        <p>Of registered students</p>
+    </article>
+</section>
+
+<section class="content-grid">
+    <article class="panel camera-panel">
+        <div class="panel-heading">
+            <div><h3>Live Recognition</h3><p>Camera monitoring</p></div>
+            <span class="status-pill"><span class="online-dot"></span> Ready to start</span>
+        </div>
+        <div class="camera-placeholder">
+            <div class="camera-symbol">◎</div>
+            <h3>Face Recognition</h3>
+            <p>Start the camera to recognize registered students.</p>
+            <a class="button button-cyan" href="{{ url_for('camera_page') }}">Launch Camera</a>
+        </div>
+        <div class="panel-footer">Attendance is saved automatically after a match.</div>
+    </article>
+
+    <article class="panel">
+        <div class="panel-heading">
+            <div><h3>Attendance Activity</h3><p>Records per day · Last 7 days</p></div>
+            <span class="tag">7 DAYS</span>
+        </div>
+        <div class="chart-wrap"><canvas id="attendanceChart"></canvas></div>
+    </article>
+</section>
+
+<section class="panel">
+    <div class="panel-heading">
+        <div><h3>Recent Attendance</h3><p>Latest recognized students</p></div>
+        <a class="text-link" href="{{ url_for('reports_page') }}">View reports →</a>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>STUDENT</th><th>ROLL NUMBER</th><th>DATE</th><th>TIME</th><th>STATUS</th></tr></thead>
+            <tbody>
+            {% for record in recent %}
+                <tr>
+                    <td><span class="student-avatar">{{ record["name"][:1]|upper }}</span>{{ record["name"] }}</td>
+                    <td>{{ record["roll_no"] }}</td>
+                    <td>{{ record["date"] }}</td>
+                    <td>{{ record["time"] }}</td>
+                    <td><span class="badge-success">● Recorded</span></td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="empty">No attendance records yet. Launch the camera to begin.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const labels = {{ chart_labels | tojson }};
+const values = {{ chart_values | tojson }};
+const canvas = document.getElementById("attendanceChart");
+
+if (canvas) {
+    new Chart(canvas, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Attendance records",
+                data: values,
+                backgroundColor: "#00e5ff",
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+</script>
+{% endblock %}
