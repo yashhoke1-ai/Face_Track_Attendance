@@ -23,9 +23,22 @@ import time
 from deepface import DeepFace
 import cv2
 from flask import Flask, Response
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash,check_password_hash
 
+from database import (
+    create_admin,
+    get_admin_by_username,
+    count_admins
+)
+import base64
 app = Flask(__name__)
-app.secret_key = "your-local-development-secret"
+
+
+app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-production")
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
+app.config["SESSION_COOKIE_SECURE"] = bool(os.environ.get("RENDER"))
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 
 init_db()
 
@@ -57,6 +70,98 @@ def get_face_embedding(image_path):
     )
 
     return face["embedding"], face["facial_area"]
+
+
+def login_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if "admin_id" not in session:
+            return redirect(url_for("login"))
+        return view_func(*args, **kwargs)
+
+    return wrapper
+
+
+
+
+@app.before_request
+def protect_everything():
+    ep = request.endpoint
+    if ep is None or ep == "static":
+        return
+
+    # First run: only the setup page is allowed until an admin exists
+    if count_admins() == 0:
+        if ep == "setup_admin":
+            return
+        return redirect(url_for("setup_admin"))
+
+    # Login and setup pages are public
+    if ep in ("login", "setup_admin"):
+        return
+
+    # Everything else needs a logged-in admin
+    if not session.get("admin_id"):
+        if request.path == "/recognize":
+            return jsonify(status="login_required"), 401
+        return redirect(url_for("login"))
+
+@app.route("/setup", methods=["GET", "POST"])
+def setup_admin():
+    if count_admins() > 0:
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        if request.form.get("setup_code") != os.environ.get("SETUP_CODE", ""):
+            flash("Invalid setup code.", "danger")
+            return render_template("setup_admin.html")
+        ok, msg = _make_admin()
+        flash(msg, "success" if ok else "danger")
+        if ok:
+            return redirect(url_for("login"))
+    return render_template("setup_admin.html")
+
+@app.route("/admins/new", methods=["GET", "POST"])
+def create_admin_account():
+    if request.method == "POST":
+        ok, msg = _make_admin()
+        flash(msg, "success" if ok else "danger")
+        if ok:
+            return redirect(url_for("dashboard"))
+    return render_template("admin_create.html")
+
+def _make_admin():
+    username = request.form.get("username", "").strip()
+    email = request.form.get("email", "").strip() or None
+    pw, pw2 = request.form.get("password", ""), request.form.get("confirm_password", "")
+    if not username or len(pw) < 8:
+        return False, "Username required and password must be 8+ characters."
+    if pw != pw2:
+        return False, "Passwords do not match."
+    try:
+        create_admin(username, email, generate_password_hash(pw))
+    except sqlite3.IntegrityError:
+        return False, "Username or email already exists."
+    return True, "Admin account created."
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        admin = get_admin_by_username(request.form.get("username", "").strip())
+        if admin and check_password_hash(admin["password"], request.form.get("password", "")):
+            session.clear()
+            session["admin_id"] = admin["id"]
+            session["admin_name"] = admin["username"]
+            return redirect(url_for("dashboard"))
+        flash("Invalid username or password.", "danger")
+    return render_template("login.html")
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+
 
 
 
@@ -94,9 +199,13 @@ def register_student():
 
     return redirect(url_for("students_page"))
 
-
 @app.route("/")
+def index():
+    return redirect(url_for("dashboard"))
+
+@app.route("/dashboard")
 def dashboard():
+
     db = get_db()
 
     total_students = db.execute(
@@ -108,8 +217,6 @@ def dashboard():
         WHERE date = ?
     """, (date.today().isoformat(),)).fetchone()[0]
 
-    # In this simple version, students without a record today
-    # are counted as not yet marked/absent.
     absent_today = max(0, total_students - present_today)
 
     attendance_rate = round(
@@ -141,15 +248,20 @@ def dashboard():
 
     db.close()
     return render_template(
-    "dashboard.html",
-    total_students=total_students,
-    present_today=present_today,
-    absent_today=absent_today,
-    attendance_rate=attendance_rate,
-    recent=recent,
-    chart_labels=labels,
-    chart_values=daily_counts
-)
+        "dashboard.html",
+        total_students=total_students,
+        present_today=present_today,
+        absent_today=absent_today,
+        attendance_rate=attendance_rate,
+        recent=recent,
+        chart_labels=labels,
+        chart_values=daily_counts
+    )
+
+@app.route("/faces/<path:filename>")
+def face_image(filename):
+    return send_from_directory(FACES_DIR, filename)
+
 
 @app.route("/students")
 def students_page():
@@ -179,150 +291,39 @@ def reports_page():
     return render_template("reports.html", records=records)
 
 
-
-def generate_frames():
-    camera = cv2.VideoCapture(0)
-
-    if not camera.isOpened():
-        camera.release()
-        print("ERROR: Could not open webcam.")
-        return
-
-    # Load registered students and their saved face embeddings.
-    registered_faces = get_registered_faces()
-
-    status_message = "Looking for a face..."
-    status_color = (0, 229, 255)  # Cyan
-    frame_count = 0
-    last_recognition_time = 0
-    last_student_id = None
-
+@app.route("/recognize", methods=["POST"])
+def recognize():
+    
+    data = request.get_json(silent=True) or {}
     try:
-        while True:
-            success, frame = camera.read()
+        raw = base64.b64decode(data["image"].split(",", 1)[1])
+        frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+        faces = DeepFace.represent(
+            img_path=frame, model_name="Facenet512",
+            detector_backend="opencv", enforce_detection=True
+        )
+    except Exception:
+        return jsonify(status="no_face")
 
-            if not success:
-                break
+    face = max(faces, key=lambda f: f["facial_area"]["w"] * f["facial_area"]["h"])
+    emb = np.array(face["embedding"])
 
-            frame_count += 1
-            current_time = time.time()
+    best, best_dist = None, 1.0
+    for s in get_registered_faces():
+        ref = np.array(s["embedding"])
+        dist = 1 - emb @ ref / (np.linalg.norm(emb) * np.linalg.norm(ref))
+        if dist < best_dist:
+            best, best_dist = s, dist
 
-            # Run face recognition periodically to reduce CPU usage.
-            if (
-                frame_count % 15 == 0
-                and current_time - last_recognition_time >= 1
-            ):
-                last_recognition_time = current_time
+    if best is None or best_dist > 0.30:   # Facenet512 cosine threshold
+        return jsonify(status="unknown")
 
-                try:
-                    detected_faces = DeepFace.represent(
-                        img_path=frame,
-                        model_name="Facenet512",
-                        detector_backend="opencv",
-                        enforce_detection=False
-                    )
-
-                    best_match = None
-                    best_distance = float("inf")
-
-                    for detected in detected_faces:
-                        # Ignore results where no face was detected.
-                        area = detected.get("facial_area", {})
-                        if area.get("w", 0) <= 0 or area.get("h", 0) <= 0:
-                            continue
-
-                        live_embedding = np.array(
-                            detected["embedding"], dtype=np.float32
-                        )
-
-                        for student in registered_faces:
-                            saved_embedding = np.array(
-                                student["embedding"], dtype=np.float32
-                            )
-
-                            denominator = (
-                                np.linalg.norm(live_embedding)
-                                * np.linalg.norm(saved_embedding)
-                            )
-
-                            if denominator == 0:
-                                continue
-
-                            # Cosine distance: smaller means more similar.
-                            distance = 1 - (
-                                np.dot(live_embedding, saved_embedding)
-                                / denominator
-                            )
-
-                            if distance < best_distance:
-                                best_distance = distance
-                                best_match = student
-
-                    # Initial threshold for testing; calibrate with real photos.
-                    if best_match is not None and best_distance < 0.30:
-                        student_id = best_match["id"]
-                        student_name = best_match["name"]
-
-                        if student_id != last_student_id:
-                            marked = mark_attendance(student_id)
-                            last_student_id = student_id
-
-                            if marked:
-                                status_message = (
-                                    f"Attendance recorded: {student_name}"
-                                )
-                                status_color = (49, 214, 160)
-                                print(status_message)
-                            else:
-                                status_message = (
-                                    f"Attendance already recorded: {student_name}"
-                                )
-                                status_color = (0, 229, 255)
-
-                    else:
-                        last_student_id = None
-                        status_message = "Face not recognized"
-                        status_color = (0, 80, 255)
-
-                except Exception as error:
-                    print("Face recognition error:", error)
-                    status_message = "Recognition error - check terminal"
-                    status_color = (0, 80, 255)
-
-            # Display the current status directly on the camera video.
-            cv2.putText(
-                frame,
-                status_message,
-                (20, 35),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.65,
-                status_color,
-                2,
-                cv2.LINE_AA
-            )
-
-            success, buffer = cv2.imencode(".jpg", frame)
-
-            if not success:
-                continue
-
-            yield (
-                b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\n\r\n"
-                + buffer.tobytes()
-                + b"\r\n"
-            )
-
-    finally:
-        camera.release()
+    new = mark_attendance(best["id"])
+    return jsonify(status="marked" if new else "already",
+                   name=best["name"], roll_no=best["roll_no"])
 
 
-@app.route("/video_feed")
-def video_feed():
-    return Response(
-        generate_frames(),
-        mimetype="multipart/x-mixed-replace; boundary=frame"
-    )
+
 
 
 @app.route("/students/<int:student_id>")

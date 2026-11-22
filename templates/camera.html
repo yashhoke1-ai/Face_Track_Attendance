@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 {% block title %}Live Camera | FaceAttend{% endblock %}
 {% block page_heading %}Live Face Recognition{% endblock %}
@@ -15,12 +14,18 @@
 <section class="content-grid camera-layout">
     <article class="panel">
         <div class="panel-heading">
-            <div><h3>Recognition Feed</h3><p>Look toward your laptop webcam</p></div>
+            <div>
+                <h3>Recognition Feed</h3>
+                <p>Look toward your laptop webcam</p>
+            </div>
             <span class="tag">LIVE</span>
         </div>
-        <img class="live-video"
-             src="{{ url_for('video_feed') }}"
-             alt="Live face recognition camera feed">
+
+        <!-- REPLACED the <img src="video_feed"> with these three lines -->
+        <video id="cam" class="live-video" autoplay playsinline muted></video>
+        <canvas id="snap" hidden></canvas>
+        <div id="result" class="notice">Starting camera…</div>
+
         <div class="panel-footer">
             Recognized students are recorded once per day.
         </div>
@@ -28,12 +33,71 @@
 
     <article class="panel">
         <div class="panel-heading">
-            <div><h3>Recognition Guide</h3><p>For best results</p></div>
+            <div>
+                <h3>Recognition Guide</h3>
+                <p>For best results</p>
+            </div>
         </div>
-        <div class="guide-step"><span>01</span><div><strong>Face the camera</strong><p>Keep your face in view.</p></div></div>
-        <div class="guide-step"><span>02</span><div><strong>Use good lighting</strong><p>Avoid strong backlighting.</p></div></div>
-        <div class="guide-step"><span>03</span><div><strong>Check the result</strong><p>Look for the attendance status in the video.</p></div></div>
+        <div class="guide-step"><span>01</span>
+            <div><strong>Face the camera</strong>
+                <p>Keep your face in view.</p>
+            </div>
+        </div>
+        <div class="guide-step"><span>02</span>
+            <div><strong>Use good lighting</strong>
+                <p>Avoid strong backlighting.</p>
+            </div>
+        </div>
+        <div class="guide-step"><span>03</span>
+            <div><strong>Check the result</strong>
+                <p>Look for the attendance status in the video.</p>
+            </div>
+        </div>
         <a class="button button-cyan full-button" href="{{ url_for('dashboard') }}">← Back to Dashboard</a>
     </article>
 </section>
+{% endblock %}
+
+
+{# ADD THIS NEW BLOCK AT THE VERY BOTTOM #}
+{% block scripts %}
+<script>
+    const video = document.getElementById("cam");
+    const canvas = document.getElementById("snap");
+    const result = document.getElementById("result");
+    let busy = false;
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+        .then(stream => {
+            video.srcObject = stream;
+            result.textContent = "Look at the camera";
+            setInterval(scan, 1500);
+        })
+        .catch(() => {
+            result.textContent = "Camera blocked. Allow permission and use an HTTPS link.";
+        });
+
+    async function scan() {
+        if (busy || !video.videoWidth) return;
+        busy = true;
+        canvas.width = 480;
+        canvas.height = 480 * video.videoHeight / video.videoWidth;
+        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+        try {
+            const r = await fetch("{{ url_for('recognize') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ image: canvas.toDataURL("image/jpeg", 0.8) })
+            });
+            const d = await r.json();
+            result.textContent =
+                d.status === "marked" ? `✓ ${d.name} (${d.roll_no}) marked present` :
+                    d.status === "already" ? `${d.name} already marked today` :
+                        d.status === "unknown" ? "Face not recognized" : "No face detected";
+        } catch {
+            result.textContent = "Connection error";
+        }
+        busy = false;
+    }
+</script>
 {% endblock %}

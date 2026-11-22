@@ -36,6 +36,18 @@ def init_db():
         )
     """)
 
+
+        # Admin authentication table
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS admins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE,
+            password TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     db.commit()
     db.close()
 
@@ -168,3 +180,51 @@ def get_student_by_id(student_id):
         ).fetchone()
     finally:
         db.close()
+
+# Create a new admin account
+def create_admin(username, email, password_hash):
+    db = get_db()
+
+    try:
+        db.execute("""
+            INSERT INTO admins (username, email, password)
+            VALUES (?, ?, ?)
+        """, (username, email, password_hash))
+
+        db.commit()
+
+    finally:
+        db.close()
+
+
+# Find admin using username
+def get_admin_by_username(username):
+    db = get_db()
+
+    try:
+        admin = db.execute("""
+            SELECT * FROM admins
+            WHERE username = ?
+        """, (username,)).fetchone()
+
+        return admin
+
+    finally:
+        db.close()
+
+
+# Check whether an admin account exists
+def count_admins():
+    db = get_db()
+
+    try:
+        count = db.execute("""
+            SELECT COUNT(*) FROM admins
+        """).fetchone()[0]
+
+        return count
+
+    finally:
+        db.close()
+
+

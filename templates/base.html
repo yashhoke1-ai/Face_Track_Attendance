@@ -1,61 +1,66 @@
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Face Attendance{% endblock %}</title>
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
 
-<div class="layout">
-    <aside class="sidebar">
-        <a class="brand" href="{{ url_for('dashboard') }}">
-            <span class="brand-icon">⌖</span>
-            <span>FACE<span class="cyan">ATTEND</span>
-                <small>SMART • SECURE • AUTOMATED</small>
-            </span>
-        </a>
+    <div class="layout">
+        <aside class="sidebar">
+            <a class="brand" href="{{ url_for('dashboard') }}">
+                <span class="brand-icon">⌖</span>
+                <span>FACE<span class="cyan">ATTEND</span>
+                    <small>SMART • SECURE • AUTOMATED</small>
+                </span>
+            </a>
 
-        <nav>
-            <a href="{{ url_for('dashboard') }}">▦ <span>Dashboard</span></a>
-            <a href="{{ url_for('students_page') }}">♙ <span>Students</span></a>
-            <a href="{{ url_for('camera_page') }}">◎ <span>Live Camera</span></a>
-            <a href="{{ url_for('reports_page') }}">▤ <span>Attendance Reports</span></a>
-        </nav>
+            <nav>
+                <a href="{{ url_for('dashboard') }}">▦ <span>Dashboard</span></a>
+                <a href="{{ url_for('students_page') }}">♙ <span>Students</span></a>
+                <a href="{{ url_for('camera_page') }}">◎ <span>Live Camera</span></a>
+                <a href="{{ url_for('reports_page') }}">▤ <span>Attendance Reports</span></a>
+            </nav>
 
-        <div class="sidebar-bottom">
-            <span class="online-dot"></span> Recognition system
-            <small>Local camera mode</small>
-        </div>
-    </aside>
-
-    <main class="main">
-        <header class="topbar">
-            <div>
-                <div class="eyebrow">ATTENDANCE MANAGEMENT</div>
-                <strong>{% block page_heading %}Dashboard{% endblock %}</strong>
+            <div class="sidebar-bottom">
+                <span class="online-dot"></span> Recognition system
+                <small>Local camera mode</small>
             </div>
-            <div class="topbar-right">
-                <span class="status-pill"><span class="online-dot"></span> Local system</span>
-                <span class="avatar">A</span>
-                <span>Admin</span>
-            </div>
-        </header>
+        </aside>
 
-        {% with messages = get_flashed_messages() %}
-          {% for message in messages %}
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <div class="eyebrow">ATTENDANCE MANAGEMENT</div>
+                    <strong>{% block page_heading %}Dashboard{% endblock %}</strong>
+                </div>
+                <div class="topbar-right">
+                    <span class="status-pill"><span class="online-dot"></span> Local system</span>
+                    <span class="avatar">A</span>
+                    <span>{{ session.get('admin_name', 'Admin') }}</span>
+                    <a class="text-link" href="{{ url_for('create_admin_account') }}">+ Admin</a>
+                    <form action="{{ url_for('logout') }}" method="POST" style="margin:0">
+                        <button class="button button-purple" type="submit">Sign out</button>
+                    </form>
+                </div>
+            </header>
+
+            {% with messages = get_flashed_messages() %}
+            {% for message in messages %}
             <div class="notice">{{ message }}</div>
-          {% endfor %}
-        {% endwith %}
+            {% endfor %}
+            {% endwith %}
 
-        {% block content %}{% endblock %}
-    </main>
-</div>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
 
-<script src="{{ url_for('static', filename='js/script.js') }}"></script>
-{% block scripts %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    {% block scripts %}{% endblock %}
 </body>
+
 </html>

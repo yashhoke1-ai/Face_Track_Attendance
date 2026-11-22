@@ -26,3 +26,6 @@ faces/*
 
 # Logs
 *.log
+
+students.db
+faces/

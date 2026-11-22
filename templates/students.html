@@ -22,9 +22,7 @@
         <tr>
             <td>
                 <img
-                    src="{{ url_for('static', filename=student['photo_path']) }}"
-                    alt="Student photo"
-                    width="60"
+                   src="{{ url_for('face_image', filename=student['photo_path'].replace('\\','/').split('/')[-1]) }}"
                 >
             </td>
 
